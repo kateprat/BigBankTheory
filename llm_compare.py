@@ -4,11 +4,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 def dict_to_text(d, label="Document"):
     lines = [f"{label}:"]
     for k, v in d.items():
         lines.append(f"- {k}: {v}")
     return "\n".join(lines)
+
 
 def check_consistency_with_groq(dict1, dict2, system_instructions=None):
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -32,7 +34,7 @@ def check_consistency_with_groq(dict1, dict2, system_instructions=None):
         model="llama-3.1-8b-instant",
         messages=[
             {"role": "system", "content": system_instructions},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": prompt},
         ],
         temperature=0.2,
         max_tokens=512,

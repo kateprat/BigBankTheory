@@ -1,5 +1,10 @@
-requests
-python-dotenv
-python-docx
-PyPDF2
-streamlit
+PyPDF2>=3.0.1
+python-docx>=1.1.0
+pytesseract>=0.3.10
+Pillow>=10.0.0
+opencv-python>=4.9.0.80
+requests>=2.31.0
+groq>=0.1.0
+python-dotenv>=1.0.1
+streamlit>=1.32.0
+tqdm>=4.67.1

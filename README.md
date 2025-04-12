@@ -1,50 +1,132 @@
-# BigBankTheory
+# BigBankTheory - Onboarding Quest
 
-### `client.py`
+An automated system for client onboarding verification that detects inconsistencies across multiple documents.
 
-Handles interaction with the server. It is responsible for:
+## 📋 Project Overview
 
-- Starting the game session via API call
-- Sending decisions made during the game
-- Collecting and returning the server response data
+This project provides tools to automate the verification of client onboarding documents, identifying inconsistencies and fraudulent applications. The system analyzes multiple document formats (PDF, DOCX, image and txt file) to verify client information consistency.
 
----
+## 🛠️ Installation
 
-### `game_player.py`
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/kateprat/BigBankTheory
+   cd BigBankTheory
+   ```
 
-Acts as the driver for the full pipeline:
+2. **Create a virtual environment**
+   ```bash
+   python3 -m venv venv
+   ```
 
-1. Uses `client.py` to run a game session and collect gameplay data.
-2. Saves the collected data into a temporary directory (`tmp_client/`).
-3. Calls the classifier with the path to this data for evaluation.
+3. **Activate the virtual environment**
+   
+   On Windows:
+   ```bash
+   venv\Scripts\activate
+   ```
+   
+   On macOS/Linux:
+   ```bash
+   source venv/bin/activate
+   ```
 
----
+4. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+5. **Create a .env file**
+   
+   Create a `.env` file in the project root with the following variables:
+   ```
+   API_KEY=your_jb_backend_api_key
+   PLAYER_NAME=BigBank Theory
+   GROQ_API_KEY=your_groq_api_key
+   ```
+
+## Usage
+
+The project provides three main ways to interact with the system:
+
+### 1. Streamlit UI
+
+Use our frontend interface to visualize the verification process.
+
+```bash
+streamlit run streamlit_app.py
+```
+
+This provides a user-friendly interface for:
+- Viewing client information
+- Seeing classification decisions in real-time
+- Tracking score and statistics
+- Understanding rejection reasons
+
+### 2. Game Player
+
+Runs the automated client verification against the backend server.
+
+```bash
+python3 game_player.py
+```
+
+This will:
+- Connect to the Julius Bär backend server
+- Process client documents
+- Use the classifier to make accept/reject decisions
+- Track score and save misclassified clients for analysis
+
+### 3. Classifier
+
+Test the classifier against the 3000 client database.
+
+```bash
+python3 classifier.py
+```
+
+Requirements:
+- Client data should be in a folder named `client_data/`
+- Each client folder should be named `client_i/` where `0 ≤ i < 3000`
+- Each client folder should contain 4 documents:
+  - `account.pdf`
+  - `passport.png`
+  - `profile.docx`
+  - `description.txt`
+
+## Project Structure
+
+### `game_client.py`
+
+Handles communication with the backend server:
+- Initiates game sessions
+- Retrieves client document data
+- Submits classification decisions
+- Gets game scores and results
 
 ### `classifier.py`
 
-Contains the logic to evaluate whether the gameplay data collected from the client is **coherent** or not.
+Contains the verification logic to detect document inconsistencies:
+- Processes multiple document formats
+- Extracts and normalizes client information
+- Compares data across documents for consistency
+- Optionally uses LLM capabilities for complex verification
 
-- The main function: `classify(path: str) -> bool`
-  - **Input**: Path to the directory containing gameplay data (e.g. `tmp_client/`)
-  - **Output**: Boolean indicating whether the data is coherent
+### `game_player.py`
 
-- Internally, it calls several comparison and validation functions to:
-  - Extract key gameplay metrics
-  - Process the data for analysis
-  - Compare different aspects of the client behavior to expected patterns
-  - Uses llm to compare
+Orchestrates the full verification workflow:
+- Manages game session lifecycle
+- Processes client documents
+- Makes classification decisions
+- Archives misclassified clients for review
 
+### `streamlit_app.py`
 
-## 🚀 How to Run
+Provides a visual interface for the verification process:
+- Displays client information
+- Shows real-time classification results
+- Tracks game progress and statistics
 
-1. Run the game and collect data:
-   ```bash
-   python game_player.py
+## 📊 Performance
 
-Currently the classifier returns True by default.
-The classifier can easily be used on the dataset, just give it the path.
-
-## 👾 Launch UI
-Launch UI to play:
-```bash
-streamlit run streamlit_app.py
+The system aims to correctly classify legitimate and fraudulent client applications with high accuracy. Performance metrics are tracked during gameplay.

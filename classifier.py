@@ -3,6 +3,9 @@ import os
 from llm_compare import check_consistency_with_groq
 from dataclasses import dataclass
 import re
+from tqdm import tqdm
+from typing import List, Dict, Any
+
 
 @dataclass
 class Address:
@@ -13,14 +16,20 @@ class Address:
     country: str
 
     @staticmethod
-    def from_string(text: str, country: str = ""):
-        # Example input: "Świętokrzyska 62, 26-923 Wrocław"
+    def from_string(text: str, country: str = "") -> "Address":
+        """
+        Parse address from a string format.
+
+        Example input: "Świętokrzyska 62, 26-923 Wrocław"
+        """
         building_number = ""
+        street_name = ""
         postal_code = ""
         city = ""
 
         parts = [p.strip() for p in text.split(",")]
 
+        # Extract street and city parts
         if len(parts) == 2:
             street_part, city_part = parts
         elif len(parts) == 1:
@@ -52,40 +61,57 @@ class Address:
             street_name=street_name,
             postal_code=postal_code,
             city=city,
-            country=country.strip()
+            country=country.strip(),
         )
 
 
 class Person:
-    def __init__(self, client_path):
+    """
+    Class for loading and verifying person data from multiple document sources.
+    """
+
+    def __init__(self, client_path: str):
+        """Initialize paths to the person's documents."""
+        self.client_path = client_path
         self.pdf_path = os.path.join(client_path, "account.pdf")
         self.passport_path = os.path.join(client_path, "passport.png")
         self.docx_path = os.path.join(client_path, "profile.docx")
         self.description_path = os.path.join(client_path, "description.txt")
 
-        self.data = {}
-        
-    def compare_or_set(self, field, value) :
+        self.data: Dict[str, Any] = {}
+
+    def compare_or_set(self, field: str, value: Any) -> bool:
+        """
+        Set a field value if not already set, or compare with existing value.
+        Returns True if values match or field was newly set.
+        """
         if field not in self.data:
             self.data[field] = value
             return True
-        else :
-            # if self.data[field] != value :
-            #     print(f"ERROR for field {field}, expected {self.data[field]}, got {value}")
-            return self.data[field] == value
-            
+        return self.data[field] == value
 
-    def load_pdf(self):
-        pdf_fields = utils.extract_pdf(self.pdf_path)
-
+    def load_pdf(self) -> bool:
+        """
+        Load and validate data from PDF document.
+        Returns True if data is consistent with existing data.
+        """
         try:
+            pdf_fields = utils.extract_pdf(self.pdf_path)
             checks = []
 
             # Compare or set basic identity fields
-            checks.append(self.compare_or_set("account_name", pdf_fields.get("account_name")))
-            checks.append(self.compare_or_set("name", pdf_fields.get("account_holder_name")))
-            checks.append(self.compare_or_set("surname", pdf_fields.get("account_holder_surname")))
-            checks.append(self.compare_or_set("passport", pdf_fields.get("passport_number")))
+            checks.append(
+                self.compare_or_set("account_name", pdf_fields.get("account_name"))
+            )
+            checks.append(
+                self.compare_or_set("name", pdf_fields.get("account_holder_name"))
+            )
+            checks.append(
+                self.compare_or_set("surname", pdf_fields.get("account_holder_surname"))
+            )
+            checks.append(
+                self.compare_or_set("passport", pdf_fields.get("passport_number"))
+            )
 
             # Normalize phone number (remove spaces)
             phone = pdf_fields.get("phone_number", "").replace(" ", "")
@@ -95,13 +121,7 @@ class Person:
             checks.append(self.compare_or_set("email", pdf_fields.get("email")))
 
             # Currency: check EUR, USD, CHF or use 'other_ccy'
-            currency = ""
-            for code in ["eur", "usd", "chf"]:
-                if pdf_fields.get(code, "").strip().lower() == "/yes":
-                    currency = code.upper()
-                    break
-            if not currency:
-                currency = pdf_fields.get("other_ccy", "").upper()
+            currency = self._extract_currency(pdf_fields)
             checks.append(self.compare_or_set("currency", currency))
 
             # Address
@@ -117,89 +137,181 @@ class Person:
             return all(checks)
 
         except Exception as e:
-            print("Error loading PDF:", e)
+            print(f"Error loading PDF from {self.pdf_path}: {e}")
             return False
 
-    def load_docx(self):
-        docx_data = utils.parse_docx(self.docx_path)
-        
+    def _extract_currency(self, pdf_fields: Dict[str, str]) -> str:
+        """Extract currency from PDF fields."""
+        for code in ["eur", "usd", "chf"]:
+            if pdf_fields.get(code, "").strip().lower() == "/yes":
+                return code.upper()
+        return pdf_fields.get("other_ccy", "").upper()
 
+    def load_docx(self) -> bool:
+        """
+        Load and validate data from DOCX document.
+        Returns True if data is consistent with existing data.
+        """
         try:
+            docx_data = utils.parse_docx(self.docx_path)
             checks = []
 
-            full_name = f"{docx_data.get('first_middle_names', '').strip()} {docx_data.get('last_name', '').strip()}"
+            # Build and check full name
+            first_name = docx_data.get("first_middle_names", "").strip()
+            last_name = docx_data.get("last_name", "").strip()
+            full_name = f"{first_name} {last_name}".strip()
+
             checks.append(self.compare_or_set("account_name", full_name))
-            checks.append(self.compare_or_set("name", docx_data.get("first_middle_names", "").strip()))
-            checks.append(self.compare_or_set("surname", docx_data.get("last_name", "").strip()))
+            checks.append(self.compare_or_set("name", first_name))
+            checks.append(self.compare_or_set("surname", last_name))
+            checks.append(
+                self.compare_or_set(
+                    "passport", docx_data.get("id_passport_number", "").strip()
+                )
+            )
+            checks.append(
+                self.compare_or_set("email", docx_data.get("email", "").strip())
+            )
+            checks.append(
+                self.compare_or_set("phone", docx_data.get("telephone", "").strip())
+            )
 
-            checks.append(self.compare_or_set("passport", docx_data.get("id_passport_number", "").strip()))
-
-            checks.append(self.compare_or_set("email", docx_data.get("email", "").strip()))
-            phone = docx_data.get("telephone", "").strip()
-            checks.append(self.compare_or_set("phone", phone))
-
+            # Parse and check address
             country = docx_data.get("country_of_domicile", "").strip()
-            address = Address.from_string(docx_data.get("address"), country=country)
+            address = Address.from_string(docx_data.get("address", ""), country=country)
             checks.append(self.compare_or_set("address", address))
+
+            # Additional identity information
+            checks.append(
+                self.compare_or_set("nationality", docx_data.get("nationality"))
+            )
+            checks.append(self.compare_or_set("gender", docx_data.get("gender")))
 
             return all(checks)
 
         except Exception as e:
-            print("Error loading DOCX:", e)
+            print(f"Error loading DOCX from {self.docx_path}: {e}")
             return False
+
+    def check_passport(self) -> bool:
+        """
+        Validate passport image OCR text against stored person data.
+        Returns True if the passport data matches the person data.
+        """
+        try:
+            text = utils.extract_text(self.passport_path)
+            normalized_text = utils.normalize_text(text).lower().replace("\n", " ")
+
+            # Check key fields in passport
+            check_fields = ["name", "surname", "passport", "nationality"]
+
+            for field in check_fields:
+                field_value = self.data.get(field, "").lower()
+                if not field_value:
+                    continue
+
+                normalized_value = utils.normalize_text(field_value)
+                masked_value = self._create_masked_value(field_value, normalized_value)
+
+                if not self._partial_match(normalized_text, masked_value):
+                    return False
+
+            # Check gender marker
+            expected_sex = "M" if self.data.get("gender") == "male" else "F"
+            if expected_sex not in text:
+                return False
+
+            return True
+
+        except Exception as e:
+            print(f"Error checking passport from {self.passport_path}: {e}")
+            return False
+
+    def _create_masked_value(self, original: str, normalized: str) -> str:
+        """Create a string with wildcards for diacritic characters."""
+        return "".join([c if b == c else "*" for b, c in zip(original, normalized)])
+
+    def _match_with_wildcards(self, text: str, pattern: str) -> bool:
+        """Check if text matches pattern with wildcards."""
+        pattern_regex = re.escape(pattern).replace(r"\*", ".*")
+        return re.search(pattern_regex, text) is not None
+
+    def _generate_partial_patterns(self, string: str) -> List[str]:
+        """Generate patterns with adjacent wildcards for fuzzy matching."""
+        patterns = []
+        for i in range(len(string) - 1):
+            pattern = list(string)
+            pattern[i] = "*"
+            pattern[i + 1] = "*"
+            patterns.append("".join(pattern))
+        return patterns
+
+    def _partial_match(self, text: str, pattern: str) -> bool:
+        """Check if text matches any of the generated fuzzy patterns."""
+        patterns = self._generate_partial_patterns(pattern)
+        return any(self._match_with_wildcards(text, pat) for pat in patterns)
 
 
 class Classifier:
+    """
+    Classifier for verifying consistency across multiple document sources.
+    """
+
     def __init__(self):
         pass
 
-    def classify(self, client_path: str):
+    def classify(self, client_path: str) -> bool:
+        """
+        Classify whether client documents are consistent.
+        Returns True if documents pass validation.
+        """
         person = Person(client_path=client_path)
+        return person.load_pdf() and person.load_docx() and person.check_passport()
 
-        if not person.load_pdf():
-            return False
-
-        if not person.load_docx():
-            return False
-
+    def llm_compare(self, pdf_path: str, docx_path: str) -> bool:
+        """
+        Use LLM to compare documents for consistency.
+        Returns True if LLM determines documents are consistent.
+        """
+        pdf_data = utils.extract_pdf(pdf_path)
+        docx_data = utils.parse_docx(docx_path)
+        result = check_consistency_with_groq(docx_data, pdf_data)
+        print(result)
         return True
 
 
-    def _llm_compare(self):
-        pdf_data = utils.extract_pdf(self.pdf_path)
-        docx_data = utils.parse_docx(self.docx_path)
-        ans = check_consistency_with_groq(docx_data, pdf_data)
-        print(ans)
-        return True
+def run_validation(num_clients=3000, batch_log_interval=50):
+    """Run validation on client data and print statistics."""
+    total = success = false_positives = false_negatives = 0
 
+    print("Starting validation...\n")
+
+    for i in tqdm(range(num_clients), desc="Validating", unit="client"):
+        path = f"client_data/client_{i + 1}/"
+        if not os.path.isdir(path):
+            continue
+
+        total += 1
+        person = Person(path)
+        result = person.load_pdf() and person.load_docx() and person.check_passport()
+        expected = (i % 1000) < 500
+
+        success += result == expected
+        false_negatives += int(not result and expected)
+        false_positives += int(result and not expected)
+
+        if i % batch_log_interval == 0 and i > 0:
+            print(
+                f"  └─ Processed {i} clients | Current Accuracy: {success}/{total} ({(success/total)*100:.2f}%)"
+            )
+
+    print("\n=== Validation Summary ===")
+    print(f"Total Clients     : {total}")
+    print(f"Correct Predictions: {success}")
+    print(f"False Negatives   : {false_negatives}")
+    print(f"False Positives   : {false_positives}")
+    print(f"Accuracy          : {(success / total * 100):.2f}%\n")
 
 
 if __name__ == "__main__":
-    total = 0
-    success = 0
-    fp = 0
-    fn = 0
-    
-    for i in range(3000) :
-        path = "client_data/client_" + str(i + 1) + "/"
-        if not os.path.isdir(path) : 
-            continue
-        
-        total += 1
-        pers = Person(path)
-        
-        result = pers.load_pdf() and pers.load_docx() 
-        expected = (i % 1000) < 500
-        
-        success += result == expected
-        
-        if not result  and expected :
-            fn += 1
-        if result and not expected :
-            fp += 1
-            
-        if result != expected :
-            print(path)
-        
-        
-    print(total, success, fn, fp)
+    run_validation()
