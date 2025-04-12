@@ -4,6 +4,7 @@ import pytesseract
 from PIL import Image
 import os
 import base64
+import cv2
 
 
 def extract_pdf(pdf_path):
@@ -42,10 +43,28 @@ def parse_docx(doc_path) :
     })
     return data
 
-def extract_png(passport_path): 
-    image = Image.open(passport_path)
-    extracted_text = pytesseract.image_to_string(image)
-    return extracted_text
+# ------ preprocessing the image 
+def preprocess_image(image_path):
+    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    
+    # Light Gaussian blur (preserves edges better than medianBlur)
+    img = cv2.GaussianBlur(img, (1, 1), 0)
+
+    # Resize if too small (OCR loves ~300dpi equivalent)
+    if img.shape[0] < 1000:
+        img = cv2.resize(img, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+
+    cv2.imwrite("preprocessed.png", img)
+    return "preprocessed.png"
+
+
+def extract_text(image_path):
+    # Preprocess the image
+    img = preprocess_image(image_path)
+
+    # Use Tesseract to extract text
+    text = pytesseract.image_to_string(img)  # Specify languages
+    return text
 
 
 def save_passport_image(json_data, output_dir, filename="passport.png"):
@@ -102,3 +121,5 @@ def save_description_txt(json_data, output_dir, filename="description.txt"):
         f.write(txt_data)
 
     return filepath
+
+
