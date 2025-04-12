@@ -33,8 +33,10 @@ def compProfileAccount(pdf_path, docx_path):
     pdf_data = extract_pdf(pdf_path)
     docx_data = parse_docx(docx_path)
 
-    print(f"pdf : {pdf_data.keys()}")
-    print(f"docx: {docx_data.keys()}")
+    data_match = True
+
+    # print(f"pdf : {pdf_data.keys()}")
+    # print(f"docx: {docx_data.keys()}")
 
     # fields to compare 
     field_ids = [("account_holder_name","first_middle_names"), 
@@ -46,23 +48,27 @@ def compProfileAccount(pdf_path, docx_path):
     
     mismatches = [0 if pdf_data.get(id1) == docx_data.get(id2) else 1 for id1, id2 in field_ids]
 
+    if 1 in mismatches : 
+        data_match = False
+
     # fields that should be in address
     addr = ["building_number", "postal_code", "city", "street_name"]
     for a in addr : 
         if pdf_data.get(a) not in docx_data.get("address"): 
             mismatches.append(1)
+            data_match = False
         else:  mismatches.append(0)
 
-    return mismatches
+    return data_match
 
 
 
 
 if __name__ == "__main__":
     # Example usage compare pdf against passport 
-    pdf_path = "client_data/client_502/account.pdf"
-    passport_path = "client_data/client_502/passport.png"
-    docx_path = "client_data/client_502/profile.docx"
+    pdf_path = "client_data/client_600/account.pdf"
+    passport_path = "client_data/client_600/passport.png"
+    docx_path = "client_data/client_600/profile.docx"
 
     # errors = compToPassport(pdf_path, passport_path, docx_path )
 
