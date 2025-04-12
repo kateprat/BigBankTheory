@@ -11,8 +11,8 @@ def extract_pdf(pdf_path):
     fields = reader.get_fields()
     return {k : v.get('/V', None) for k,v in fields.items()}
 
-def parse_docx(path) :
-    doc = Document(path)
+def parse_docx(doc_path) :
+    doc = Document(doc_path)
     table = doc.tables[1]
     data = {
         "last_name": table.rows[0].cells[2].text.strip(),
@@ -37,7 +37,7 @@ def parse_docx(path) :
         
     table = doc.tables[3]
     data.update( {
-        "telephone": "".join(table.rows[0].cells[2].text.strip().split()[1:]),
+        "telephone": " ".join(table.rows[0].cells[2].text.strip().split()[1:]),
         "email": table.rows[2].cells[2].text.strip().split()[1],
     })
     return data
