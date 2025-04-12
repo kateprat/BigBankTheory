@@ -2,7 +2,8 @@ from PyPDF2 import PdfReader
 from docx import Document
 import pytesseract
 from PIL import Image
-
+import os
+import base64
 
 
 def extract_pdf(pdf_path):
@@ -45,3 +46,59 @@ def extract_png(passport_path):
     image = Image.open(passport_path)
     extracted_text = pytesseract.image_to_string(image)
     return extracted_text
+
+
+def save_passport_image(json_data, output_dir, filename="passport.png"):
+    if "passport" not in json_data:
+        raise ValueError("Field 'passport' not found in the provided JSON data.")
+
+    os.makedirs(output_dir, exist_ok=True)
+    image_data = base64.b64decode(json_data["passport"])
+    filepath = os.path.join(output_dir, filename)
+
+    with open(filepath, "wb") as f:
+        f.write(image_data)
+
+    return filepath
+
+def save_docx_file(json_data, output_dir, filename="profile.docx"):
+    if "profile" not in json_data:
+        raise ValueError("Field 'profile' not found in the provided JSON data.")
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    docx_data = base64.b64decode(json_data["profile"])
+    filepath = os.path.join(output_dir, filename)
+
+    with open(filepath, "wb") as f:
+        f.write(docx_data)
+
+    return filepath
+
+def save_pdf_file(json_data, output_dir, filename="account.pdf"):
+    if "account" not in json_data:
+        raise ValueError("Field 'account' not found in the provided JSON data.")
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    pdf_data = base64.b64decode(json_data["account"])
+    filepath = os.path.join(output_dir, filename)
+
+    with open(filepath, "wb") as f:
+        f.write(pdf_data)
+
+    return filepath
+
+def save_description_txt(json_data, output_dir, filename="description.txt"):
+    if "description" not in json_data:
+        raise ValueError("Field 'description' not found in the provided JSON data.")
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    txt_data = base64.b64decode(json_data["description"])
+    filepath = os.path.join(output_dir, filename)
+
+    with open(filepath, "wb") as f:
+        f.write(txt_data)
+
+    return filepath
