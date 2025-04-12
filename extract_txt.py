@@ -24,39 +24,30 @@ def extract_sections(text):
         result[header] = content
     return result
 
-# ADJUST PATHS
+# Paths
 project_root = Path(__file__).resolve().parent
-juliusbaer_dir = project_root.parent / "juliusbaer"
+zip_path = project_root / "client_data.zip"
 
 # Result dictionary
 clients_data = {}
 
-# Loop through the 6 top-level ZIP files
-for main_zip_path in juliusbaer_dir.glob("*.zip"):
-    with zipfile.ZipFile(main_zip_path, 'r') as main_zip:
-        for client_zip_name in main_zip.namelist():
-            if not client_zip_name.endswith(".zip"):
-                continue
-            with main_zip.open(client_zip_name) as client_zip_file:
-                client_zip_bytes = io.BytesIO(client_zip_file.read())
-                with zipfile.ZipFile(client_zip_bytes, 'r') as client_zip:
-                    for name in client_zip.namelist():
-                        if "description.txt" in name:
-                            with client_zip.open(name) as desc_file:
-                                try:
-                                    text = desc_file.read().decode("utf-8")
-                                except UnicodeDecodeError:
-                                    print(f"⚠️ Skipping undecodable file: {name}")
-                                    continue
-                                parsed = extract_sections(text)
-                                # Use the client zip name as the top-level key
-                                clients_data[client_zip_name] = {
-                                    **parsed,
-                                }
+# Open client_data.zip
+with zipfile.ZipFile(zip_path, 'r') as zip_file:
+    # Find all paths that look like client folders with description.txt inside
+    for file_path in zip_file.namelist():
+        if file_path.endswith("description.txt") and file_path.count("/") == 2:
+            client_folder = file_path.split("/")[1]  # e.g., 'client045' from 'client_data/client045/description.txt'
+            try:
+                with zip_file.open(file_path) as desc_file:
+                    text = desc_file.read().decode("utf-8")
+                    parsed = extract_sections(text)
+                    clients_data[client_folder] = parsed
+            except Exception as e:
+                print(f"⚠️ Failed to process {file_path}: {e}")
 
 # Save to JSON
-output_path = project_root / "parsed_clients_by_name.json"
+output_path = project_root / "parsed_clients_by_folder.json"
 with open(output_path, "w", encoding="utf-8") as f:
     json.dump(clients_data, f, indent=2, ensure_ascii=False)
 
-print(f"✅ Processed {len(clients_data)} clients. Output saved to: {output_path}")
+print(f"✅ Parsed {len(clients_data)} clients. Output saved to: {output_path}")
