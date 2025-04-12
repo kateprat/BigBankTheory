@@ -2,3 +2,4 @@ requests
 python-dotenv
 python-docx
 PyPDF2
+streamlit
