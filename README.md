@@ -43,3 +43,8 @@ Contains the logic to evaluate whether the gameplay data collected from the clie
 
 Currently the classifier returns True by default.
 The classifier can easily be used on the dataset, just give it the path.
+
+## 👾 UI
+Launch UI to play:
+```bash
+streamlit run streamlit_app.py
