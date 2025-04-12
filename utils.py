@@ -1,5 +1,8 @@
 from PyPDF2 import PdfReader
 from docx import Document
+import pytesseract
+from PIL import Image
+
 
 
 def extract_pdf(pdf_path):
@@ -37,3 +40,8 @@ def parse_docx(path) :
         "email": table.rows[2].cells[2].text.strip().split()[1],
     })
     return data
+
+def extract_png(passport_path): 
+    image = Image.open(passport_path)
+    extracted_text = pytesseract.image_to_string(image)
+    return extracted_text
